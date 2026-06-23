@@ -4,6 +4,16 @@ import httpx
 import time
 import pandas as pd
 import os
+import sqlite3
+
+# Try importing local compiler packages for in-process fallback (useful for serverless cloud deployments)
+try:
+    from backend.compiler.compiler import AppCompiler
+    from backend.compiler.evaluator import Evaluator
+    from backend.compiler.execution_simulator import ExecutionSimulator
+    HAS_LOCAL_COMPILER = True
+except ImportError:
+    HAS_LOCAL_COMPILER = False
 
 # Premium UX Configuration & Page Setup
 st.set_page_config(layout="wide", page_title="AI-Powered NL-to-App Compiler", page_icon="⚡")
@@ -225,6 +235,31 @@ preset_prompts = {
 # Setup dashboard columns
 col_in, col_hist = st.columns([3, 1])
 
+# Check if SQLite DB tables exist or fetch history locally if API offline
+history_data = []
+try:
+    hist_res = httpx.get(f"{BACKEND_URL}/history")
+    if hist_res.status_code == 200:
+        history_data = hist_res.json()
+except Exception:
+    # Local fallback query from DB
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    db_path = os.path.join(current_dir, '..', 'backend', 'compiler_history.db')
+    if os.path.exists(db_path):
+        try:
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='compilation_runs'")
+            if cursor.fetchone():
+                cursor.execute("SELECT id, timestamp, prompt, success, latency_ms, repairs, domain, output_json FROM compilation_runs ORDER BY id DESC LIMIT 10")
+                for r in cursor.fetchall():
+                    history_data.append({
+                        "id": r[0], "timestamp": r[1], "prompt": r[2], "success": bool(r[3]), "latency_ms": r[4], "repairs": r[5], "domain": r[6]
+                    })
+            conn.close()
+        except Exception:
+            pass
+
 with col_in:
     st.markdown('<div class="compiler-card">', unsafe_allow_html=True)
     st.subheader("💡 Requirement Specification")
@@ -250,13 +285,6 @@ with col_hist:
     st.markdown('<div class="compiler-card" style="height: 100%;">', unsafe_allow_html=True)
     st.subheader("📜 Run History")
     
-    # Load compiler run history
-    try:
-        hist_res = httpx.get(f"{BACKEND_URL}/history")
-        history_data = hist_res.json() if hist_res.status_code == 200 else []
-    except Exception:
-        history_data = []
-        
     if history_data:
         for idx, run in enumerate(history_data[:4]):
             status_symbol = "🟢" if run["success"] else "🔴"
@@ -268,15 +296,27 @@ with col_hist:
     st.markdown("---")
     if st.button("🧪 Run Regression Harness", use_container_width=True):
         with st.spinner("Running 20-prompt test harness..."):
+            # Try API first
+            eval_done = False
             try:
                 eval_res = httpx.post(f"{BACKEND_URL}/evaluate", timeout=120.0)
                 if eval_res.status_code == 200:
-                    st.success("Test harness run recorded!")
+                    st.success("Test harness run complete!")
                     st.session_state["eval_res"] = eval_res.json()
-                else:
-                    st.error("Evaluation run failed.")
-            except Exception as e:
-                st.error(f"Cannot connect to evaluator: {str(e)}")
+                    eval_done = True
+            except Exception:
+                pass
+                
+            if not eval_done and HAS_LOCAL_COMPILER:
+                try:
+                    evaluator = Evaluator()
+                    res = evaluator.run()
+                    st.session_state["eval_res"] = res
+                    st.success("Test harness completed locally!")
+                except Exception as e:
+                    st.error(f"Failed to run evaluator: {str(e)}")
+            elif not eval_done:
+                st.error("Harness service unavailable.")
     st.markdown('</div>', unsafe_allow_html=True)
 
 # Compiler progress state engine
@@ -307,7 +347,7 @@ if compile_btn:
             
             p_bar.progress(35)
             add_log("[STAGE 1] Running Lexical Analysis & Intent Extraction...")
-            time.sleep(0.4)
+            time.sleep(0.3)
             
             p_bar.progress(55)
             add_log("[STAGE 2] Converting Intent IR to System Architecture Graph...")
@@ -315,30 +355,49 @@ if compile_btn:
             
             p_bar.progress(70)
             add_log("[STAGE 3] Independently provisioning schemas (DB, API, UI, Auth, Rules)...")
-            time.sleep(0.4)
+            time.sleep(0.3)
             
             p_bar.progress(85)
             add_log("[STAGE 4] Executing static validation refiner scans...")
-            time.sleep(0.3)
+            time.sleep(0.2)
             
             p_bar.progress(95)
             add_log("[STAGE 5 & 6] Checking constraints & compiling target artifacts...")
             time.sleep(0.2)
             
-            # Call actual compile backend
+            # Call actual compile backend or local process fallback
+            compiled_done = False
             try:
                 payload = {"prompt": prompt_input, "trigger_repair": trigger_repair_val}
                 res = httpx.post(f"{BACKEND_URL}/compile", json=payload, timeout=60.0)
                 if res.status_code == 200:
                     st.session_state["compilation_result"] = res.json()
                     p_bar.progress(100)
-                    add_log("✓ Compilation completed successfully! Emitted app_configuration.json.")
-                    time.sleep(0.5)
-                    st.success("App configuration generated.")
-                else:
-                    st.error(f"Compilation pipeline failed: {res.text}")
-            except Exception as e:
-                st.error(f"Failed to connect to backend: {str(e)}")
+                    add_log("✓ Compilation completed successfully via API backend.")
+                    compiled_done = True
+            except Exception:
+                pass
+                
+            if not compiled_done and HAS_LOCAL_COMPILER:
+                add_log("⚠️ API Backend offline. Falling back to local in-process compiler...")
+                try:
+                    local_compiler = AppCompiler()
+                    result = local_compiler.compile(prompt_input, trigger_repair_val)
+                    if result.get("success"):
+                        st.session_state["compilation_result"] = {
+                            "success": True,
+                            "compilationOutput": result["compilationOutput"],
+                            "simulationResult": result["simulationResult"]
+                        }
+                        p_bar.progress(100)
+                        add_log("✓ Compilation completed successfully locally!")
+                        st.success("App configuration generated.")
+                    else:
+                        st.error(f"Pipeline failed: {result.get('errors')}")
+                except Exception as e:
+                    st.error(f"Local compilation failed: {str(e)}")
+            elif not compiled_done:
+                st.error("Compiler backend service is not running and local code is missing.")
             st.markdown('</div>', unsafe_allow_html=True)
         progress_card.empty()
 
@@ -483,6 +542,7 @@ if comp and comp.get("success"):
         is_deployed = False
         api_url = "http://127.0.0.1:8001"
         ui_url = "http://localhost:8502"
+        is_cloud = "STREAMLIT_SERVER_PORT" in os.environ or "PORT" in os.environ
         
         try:
             status_res = httpx.get(f"{BACKEND_URL}/deploy_status")
@@ -502,21 +562,26 @@ if comp and comp.get("success"):
                     <a href="{api_url}/docs" target="_blank" style="color: #60a5fa; font-weight: 600; text-decoration: none; font-size: 14px; display: inline-block; margin-top: 8px;">👉 Open API Backend docs (Port 8001) 🔌</a>
                 </div>
                 """, unsafe_allow_html=True)
+            elif is_cloud:
+                st.markdown('<div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 18px;">☁️ running on <b>Serverless Cloud Host</b>. Background subprocess execution is restricted on public clouds. However, you can view the fully generated executable target files below. Copy them to run locally!</div>', unsafe_allow_html=True)
             else:
                 st.markdown('<div style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px; padding: 18px;">Deployment status: <b>Offline/Ready</b>. Press the trigger to compile and deploy on-demand.</div>', unsafe_allow_html=True)
                 
         with col_dep2:
-            if st.button("⚡ Deploy App Live", use_container_width=True):
-                with st.spinner("Compiling target, provisioning SQLite, starting backend (8001) & frontend (8502)..."):
-                    try:
-                        dep_res = httpx.post(f"{BACKEND_URL}/deploy", timeout=45.0)
-                        if dep_res.status_code == 200:
-                            st.success("Application launched live!")
-                            st.rerun()
-                        else:
-                            st.error(f"Deployment failed: {dep_res.text}")
-                    except Exception as e:
-                        st.error(f"Connection failed: {str(e)}")
+            if is_cloud:
+                st.button("⚡ Live Deploy (Disabled in Cloud)", disabled=True, use_container_width=True)
+            else:
+                if st.button("⚡ Deploy App Live", use_container_width=True):
+                    with st.spinner("Compiling target, provisioning SQLite, starting backend (8001) & frontend (8502)..."):
+                        try:
+                            dep_res = httpx.post(f"{BACKEND_URL}/deploy", timeout=45.0)
+                            if dep_res.status_code == 200:
+                                st.success("Application launched live!")
+                                st.rerun()
+                            else:
+                                st.error(f"Deployment failed: {dep_res.text}")
+                        except Exception as e:
+                            st.error(f"Connection failed: {str(e)}")
                         
         st.write("---")
         
@@ -541,11 +606,29 @@ if comp and comp.get("success"):
         st.markdown("#### Section 11: Evaluation Metrics Dashboard")
         
         # Get evaluation history
+        eval_hist = []
         try:
             eval_hist_res = httpx.get(f"{BACKEND_URL}/eval_history")
-            eval_hist = eval_hist_res.json() if eval_hist_res.status_code == 200 else []
+            if eval_hist_res.status_code == 200:
+                eval_hist = eval_hist_res.json()
         except Exception:
-            eval_hist = []
+            # Local fallback query from DB
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            db_path = os.path.join(current_dir, '..', 'backend', 'compiler_history.db')
+            if os.path.exists(db_path):
+                try:
+                    conn = sqlite3.connect(db_path)
+                    cursor = conn.cursor()
+                    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='evaluation_runs'")
+                    if cursor.fetchone():
+                        cursor.execute("SELECT id, timestamp, total_prompts, success_rate, avg_latency_ms, avg_repairs, detailed_results FROM evaluation_runs ORDER BY id DESC LIMIT 5")
+                        for r in cursor.fetchall():
+                            eval_hist.append({
+                                "id": r[0], "timestamp": r[1], "total_prompts": r[2], "success_rate": r[3], "avg_latency_ms": r[4], "avg_repairs": r[5], "detailed_results": json.loads(r[6])
+                            })
+                    conn.close()
+                except Exception:
+                    pass
             
         latest_eval = None
         if "eval_res" in st.session_state:

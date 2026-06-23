@@ -231,7 +231,7 @@ st.markdown("""
         overflow-y: auto;
     }
 </style>
-"""), unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 BACKEND_URL = "http://127.0.0.1:8000"
 
@@ -319,22 +319,21 @@ with center_col:
         st.rerun()
 
     # 2. Custom Input Card Box
-    st.markdown('<div class="app-input-card">', unsafe_allow_html=True)
-    prompt_input = st.text_area(
-        "", 
-        value=st.session_state["prompt_text"], 
-        height=130, 
-        placeholder="Enter natural language requirements - e.g., Build a CRM with contacts and billing..."
-    )
-    
-    col_card_f1, col_card_f2 = st.columns([2, 1])
-    with col_card_f1:
-        trigger_repair_val = st.checkbox("Plan / Repair", value=True)
-    with col_card_f2:
-        st.markdown('<div class="indigo-submit-btn">', unsafe_allow_html=True)
-        compile_btn = st.button("Submit →")
-        st.markdown('</div>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+    with st.container(border=True):
+        prompt_input = st.text_area(
+            "Natural Language Prompt Requirements", 
+            value=st.session_state["prompt_text"], 
+            height=130, 
+            placeholder="Enter natural language requirements - e.g., Build a CRM with contacts and billing..."
+        )
+        
+        col_card_f1, col_card_f2 = st.columns([2, 1])
+        with col_card_f1:
+            trigger_repair_val = st.checkbox("Plan / Repair", value=True)
+        with col_card_f2:
+            st.markdown('<div class="indigo-submit-btn">', unsafe_allow_html=True)
+            compile_btn = st.button("Submit →", use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
 # Process compiler pipeline
 if compile_btn:

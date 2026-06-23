@@ -1,48 +1,84 @@
 {
   "metadata": {
     "compiler_version": "v1.0.0-prod-python",
-    "compilation_time_ms": 0,
-    "timestamp": "2026-06-23T17:21:59Z"
+    "compilation_time_ms": 1,
+    "timestamp": "2026-06-23T17:29:48Z"
   },
   "intent_ir": {
-    "domain": "CRM",
+    "domain": "Healthcare Portal",
     "entities": [
       "User",
-      "Order"
+      "Patient",
+      "Doctor",
+      "Appointment",
+      "Prescription"
     ],
-    "features": [
-      "Analytics Dashboard"
-    ],
+    "features": [],
     "roles": [
-      "Admin",
-      "Member",
-      "Guest"
+      "Patient",
+      "Doctor"
     ],
     "ambiguities": [],
     "conflicts": [],
     "assumptions": [
       {
         "context": "User Roles",
-        "assumption": "No roles specified. Standard RBAC [Admin, Member, Guest] provisioned by compiler."
+        "assumption": "No roles specified. Standard RBAC [Patient, Doctor] provisioned by compiler."
       }
     ],
-    "raw_prompt": "CRM system where customers can view reports. Ensure that there is no users database table and only orders database table exists."
+    "raw_prompt": "Design a hospital clinic portal with patient profiles, doctor records, appointment schedules, and prescriptions that analyses the stress\n"
   },
   "architecture_ir": {
     "relationshipGraph": [
       {
         "from": "users",
-        "to": "orders",
+        "to": "patients",
         "type": "One-to-Many",
         "foreign_key": "user_id"
+      },
+      {
+        "from": "patients",
+        "to": "doctors",
+        "type": "One-to-Many",
+        "foreign_key": "patient_id"
+      },
+      {
+        "from": "doctors",
+        "to": "appointments",
+        "type": "One-to-Many",
+        "foreign_key": "doctor_id"
+      },
+      {
+        "from": "appointments",
+        "to": "prescriptions",
+        "type": "One-to-Many",
+        "foreign_key": "appointment_id"
       }
     ],
     "dataFlowTopology": [
       {
-        "flow_id": "create_order_flow",
-        "source": "UI.OrderForm.Submit",
-        "transfers_through": "API.PostOrderEndpoint",
-        "target": "DB.orders.insert"
+        "flow_id": "create_patient_flow",
+        "source": "UI.PatientForm.Submit",
+        "transfers_through": "API.PostPatientEndpoint",
+        "target": "DB.patients.insert"
+      },
+      {
+        "flow_id": "create_doctor_flow",
+        "source": "UI.DoctorForm.Submit",
+        "transfers_through": "API.PostDoctorEndpoint",
+        "target": "DB.doctors.insert"
+      },
+      {
+        "flow_id": "create_appointment_flow",
+        "source": "UI.AppointmentForm.Submit",
+        "transfers_through": "API.PostAppointmentEndpoint",
+        "target": "DB.appointments.insert"
+      },
+      {
+        "flow_id": "create_prescription_flow",
+        "source": "UI.PrescriptionForm.Submit",
+        "transfers_through": "API.PostPrescriptionEndpoint",
+        "target": "DB.prescriptions.insert"
       }
     ],
     "routingTopology": {
@@ -52,25 +88,40 @@
           "path": "/dashboard",
           "view": "DashboardView",
           "allowed_roles": [
-            "Admin",
-            "Member",
-            "Guest"
+            "Patient",
+            "Doctor"
           ]
         },
         {
           "path": "/settings",
           "view": "SettingsView",
           "allowed_roles": [
-            "Admin"
+            "Patient",
+            "Doctor"
           ]
         },
         {
-          "path": "/orders",
-          "view": "OrderListView",
+          "path": "/patients",
+          "view": "PatientListView",
           "allowed_roles": [
-            "Admin",
-            "Member",
-            "Guest"
+            "Patient",
+            "Doctor"
+          ]
+        },
+        {
+          "path": "/doctors",
+          "view": "DoctorListView",
+          "allowed_roles": [
+            "Patient",
+            "Doctor"
+          ]
+        },
+        {
+          "path": "/appointments",
+          "view": "AppointmentListView",
+          "allowed_roles": [
+            "Patient",
+            "Doctor"
           ]
         }
       ]
@@ -96,30 +147,117 @@
           }
         }
       },
-      "orders": {
+      "patients": {
         "columns": {
           "id": {
             "type": "UUID",
             "primary_key": true,
             "nullable": false
           },
-          "order_number": {
-            "type": "VARCHAR(50)",
+          "first_name": {
+            "type": "VARCHAR(100)",
             "nullable": false
           },
-          "total": {
-            "type": "VARCHAR(50)",
+          "last_name": {
+            "type": "VARCHAR(100)",
             "nullable": false
           },
-          "status": {
+          "date_of_birth": {
             "type": "VARCHAR(50)",
-            "nullable": false
+            "nullable": true
           },
           "user_id": {
             "type": "UUID",
             "nullable": false,
             "references": {
               "table": "users",
+              "column": "id"
+            }
+          }
+        }
+      },
+      "doctors": {
+        "columns": {
+          "id": {
+            "type": "UUID",
+            "primary_key": true,
+            "nullable": false
+          },
+          "first_name": {
+            "type": "VARCHAR(100)",
+            "nullable": false
+          },
+          "last_name": {
+            "type": "VARCHAR(100)",
+            "nullable": false
+          },
+          "specialization": {
+            "type": "VARCHAR(100)",
+            "nullable": true
+          },
+          "patient_id": {
+            "type": "UUID",
+            "nullable": false,
+            "references": {
+              "table": "patients",
+              "column": "id"
+            }
+          }
+        }
+      },
+      "appointments": {
+        "columns": {
+          "id": {
+            "type": "UUID",
+            "primary_key": true,
+            "nullable": false
+          },
+          "date_time": {
+            "type": "VARCHAR(50)",
+            "nullable": false
+          },
+          "reason": {
+            "type": "TEXT",
+            "nullable": true
+          },
+          "status": {
+            "type": "VARCHAR(50)",
+            "nullable": false
+          },
+          "doctor_id": {
+            "type": "UUID",
+            "nullable": false,
+            "references": {
+              "table": "doctors",
+              "column": "id"
+            }
+          }
+        }
+      },
+      "prescriptions": {
+        "columns": {
+          "id": {
+            "type": "UUID",
+            "primary_key": true,
+            "nullable": false
+          },
+          "medication": {
+            "type": "VARCHAR(100)",
+            "nullable": false
+          },
+          "dosage": {
+            "type": "VARCHAR(100)",
+            "nullable": false
+          },
+          "instructions": {
+            "type": "TEXT",
+            "nullable": true
+          },
+          "appointment_id": {
+            "type": "UUID",
+            "nullable": false,
+            "references": {
+              "table": "appointments",
               "column": "id"
             }
           }
@@ -178,9 +316,9 @@
         }
       },
       {
-        "id": "EP_GET_ORDERS",
+        "id": "EP_GET_PATIENTS",
         "method": "GET",
-        "path": "/api/v1/users/{userId}/orders",
+        "path": "/api/v1/users/{userId}/patients",
         "authentication": "Required",
         "parameters": [
           {
@@ -191,19 +329,19 @@
           }
         ],
         "response_body": {
-          "orders": {
+          "patients": {
             "type": "array",
             "items": {
               "id": {
                 "type": "string"
               },
-              "order_number": {
+              "first_name": {
                 "type": "string"
               },
-              "total": {
+              "last_name": {
                 "type": "string"
               },
-              "status": {
+              "date_of_birth": {
                 "type": "string"
               },
               "user_id": {
@@ -214,13 +352,13 @@
         },
         "db_operation": {
           "type": "select",
-          "table": "orders"
+          "table": "patients"
         }
       },
       {
-        "id": "EP_CREATE_ORDER",
+        "id": "EP_CREATE_PATIENT",
         "method": "POST",
-        "path": "/api/v1/users/{userId}/orders",
+        "path": "/api/v1/users/{userId}/patients",
         "authentication": "Required",
         "parameters": [
           {
@@ -231,13 +369,157 @@
           }
         ],
         "request_body": {
-          "order_number": {
+          "first_name": {
             "type": "string",
             "required": true
           },
-          "total": {
+          "last_name": {
             "type": "string",
             "required": true
+          },
+          "date_of_birth": {
+            "type": "string",
+            "required": false
+          }
+        },
+        "db_operation": {
+          "type": "insert",
+          "table": "patients"
+        }
+      },
+      {
+        "id": "EP_GET_DOCTORS",
+        "method": "GET",
+        "path": "/api/v1/patients/{patientId}/doctors",
+        "authentication": "Required",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "response_body": {
+          "doctors": {
+            "type": "array",
+            "items": {
+              "id": {
+                "type": "string"
+              },
+              "first_name": {
+                "type": "string"
+              },
+              "last_name": {
+                "type": "string"
+              },
+              "specialization": {
+                "type": "string"
+              },
+              "patient_id": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "db_operation": {
+          "type": "select",
+          "table": "doctors"
+        }
+      },
+      {
+        "id": "EP_CREATE_DOCTOR",
+        "method": "POST",
+        "path": "/api/v1/patients/{patientId}/doctors",
+        "authentication": "Required",
+        "parameters": [
+          {
+            "name": "patientId",
+            "in": "path",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "request_body": {
+          "first_name": {
+            "type": "string",
+            "required": true
+          },
+          "last_name": {
+            "type": "string",
+            "required": true
+          },
+          "specialization": {
+            "type": "string",
+            "required": false
+          }
+        },
+        "db_operation": {
+          "type": "insert",
+          "table": "doctors"
+        }
+      },
+      {
+        "id": "EP_GET_APPOINTMENTS",
+        "method": "GET",
+        "path": "/api/v1/doctors/{doctorId}/appointments",
+        "authentication": "Required",
+        "parameters": [
+          {
+            "name": "doctorId",
+            "in": "path",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "response_body": {
+          "appointments": {
+            "type": "array",
+            "items": {
+              "id": {
+                "type": "string"
+              },
+              "date_time": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "doctor_id": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "db_operation": {
+          "type": "select",
+          "table": "appointments"
+        }
+      },
+      {
+        "id": "EP_CREATE_APPOINTMENT",
+        "method": "POST",
+        "path": "/api/v1/doctors/{doctorId}/appointments",
+        "authentication": "Required",
+        "parameters": [
+          {
+            "name": "doctorId",
+            "in": "path",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "request_body": {
+          "date_time": {
+            "type": "string",
+            "required": true
+          },
+          "reason": {
+            "type": "string",
+            "required": false
           },
           "status": {
             "type": "string",
@@ -246,7 +528,79 @@
         },
         "db_operation": {
           "type": "insert",
-          "table": "orders"
+          "table": "appointments"
+        }
+      },
+      {
+        "id": "EP_GET_PRESCRIPTIONS",
+        "method": "GET",
+        "path": "/api/v1/appointments/{appointmentId}/prescriptions",
+        "authentication": "Required",
+        "parameters": [
+          {
+            "name": "appointmentId",
+            "in": "path",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "response_body": {
+          "prescriptions": {
+            "type": "array",
+            "items": {
+              "id": {
+                "type": "string"
+              },
+              "medication": {
+                "type": "string"
+              },
+              "dosage": {
+                "type": "string"
+              },
+              "instructions": {
+                "type": "string"
+              },
+              "appointment_id": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "db_operation": {
+          "type": "select",
+          "table": "prescriptions"
+        }
+      },
+      {
+        "id": "EP_CREATE_PRESCRIPTION",
+        "method": "POST",
+        "path": "/api/v1/appointments/{appointmentId}/prescriptions",
+        "authentication": "Required",
+        "parameters": [
+          {
+            "name": "appointmentId",
+            "in": "path",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "request_body": {
+          "medication": {
+            "type": "string",
+            "required": true
+          },
+          "dosage": {
+            "type": "string",
+            "required": true
+          },
+          "instructions": {
+            "type": "string",
+            "required": false
+          }
+        },
+        "db_operation": {
+          "type": "insert",
+          "table": "prescriptions"
         }
       }
     ]
@@ -254,26 +608,101 @@
   "ui_schema": {
     "components": [
       {
-        "id": "COMP_ORDER_LIST",
-        "type": "KanbanBoard",
+        "id": "COMP_PATIENT_LIST",
+        "type": "TableList",
         "data_source": {
-          "endpoint_id": "EP_GET_ORDERS",
+          "endpoint_id": "EP_GET_PATIENTS",
           "params": {
             "userId": "state.activeUserId"
           }
         }
       },
       {
-        "id": "COMP_ORDER_FORM",
+        "id": "COMP_PATIENT_FORM",
         "type": "Form",
         "actions": {
           "onSubmit": {
-            "endpoint_id": "EP_CREATE_ORDER",
+            "endpoint_id": "EP_CREATE_PATIENT",
             "params": {
-              "order_number": "form.values.order_number",
-              "total": "form.values.total",
-              "status": "form.values.status",
+              "first_name": "form.values.first_name",
+              "last_name": "form.values.last_name",
+              "date_of_birth": "form.values.date_of_birth",
               "userId": "state.activeUserId"
+            }
+          }
+        }
+      },
+      {
+        "id": "COMP_DOCTOR_LIST",
+        "type": "TableList",
+        "data_source": {
+          "endpoint_id": "EP_GET_DOCTORS",
+          "params": {
+            "patientId": "state.activePatientId"
+          }
+        }
+      },
+      {
+        "id": "COMP_DOCTOR_FORM",
+        "type": "Form",
+        "actions": {
+          "onSubmit": {
+            "endpoint_id": "EP_CREATE_DOCTOR",
+            "params": {
+              "first_name": "form.values.first_name",
+              "last_name": "form.values.last_name",
+              "specialization": "form.values.specialization",
+              "patientId": "state.activePatientId"
+            }
+          }
+        }
+      },
+      {
+        "id": "COMP_APPOINTMENT_LIST",
+        "type": "KanbanBoard",
+        "data_source": {
+          "endpoint_id": "EP_GET_APPOINTMENTS",
+          "params": {
+            "doctorId": "state.activeDoctorId"
+          }
+        }
+      },
+      {
+        "id": "COMP_APPOINTMENT_FORM",
+        "type": "Form",
+        "actions": {
+          "onSubmit": {
+            "endpoint_id": "EP_CREATE_APPOINTMENT",
+            "params": {
+              "date_time": "form.values.date_time",
+              "reason": "form.values.reason",
+              "status": "form.values.status",
+              "doctorId": "state.activeDoctorId"
+            }
+          }
+        }
+      },
+      {
+        "id": "COMP_PRESCRIPTION_LIST",
+        "type": "TableList",
+        "data_source": {
+          "endpoint_id": "EP_GET_PRESCRIPTIONS",
+          "params": {
+            "appointmentId": "state.activeAppointmentId"
+          }
+        }
+      },
+      {
+        "id": "COMP_PRESCRIPTION_FORM",
+        "type": "Form",
+        "actions": {
+          "onSubmit": {
+            "endpoint_id": "EP_CREATE_PRESCRIPTION",
+            "params": {
+              "medication": "form.values.medication",
+              "dosage": "form.values.dosage",
+              "instructions": "form.values.instructions",
+              "appointmentId": "state.activeAppointmentId"
             }
           }
         }
@@ -283,37 +712,68 @@
   "authentication_rules": {
     "auth_provider": "JWT",
     "roles": [
-      "Admin",
-      "Member",
-      "Guest"
+      "Patient",
+      "Doctor"
     ],
     "endpoint_permissions": [
       {
         "endpoint_id": "EP_GET_USERS",
         "allowed_roles": [
-          "Admin",
-          "Member"
+          "Patient"
         ]
       },
       {
         "endpoint_id": "EP_CREATE_USER",
         "allowed_roles": [
-          "Admin",
-          "Member"
+          "Patient"
         ]
       },
       {
-        "endpoint_id": "EP_GET_ORDERS",
+        "endpoint_id": "EP_GET_PATIENTS",
         "allowed_roles": [
-          "Admin",
-          "Member"
+          "Patient"
         ]
       },
       {
-        "endpoint_id": "EP_CREATE_ORDER",
+        "endpoint_id": "EP_CREATE_PATIENT",
         "allowed_roles": [
-          "Admin",
-          "Member"
+          "Patient"
+        ]
+      },
+      {
+        "endpoint_id": "EP_GET_DOCTORS",
+        "allowed_roles": [
+          "Patient"
+        ]
+      },
+      {
+        "endpoint_id": "EP_CREATE_DOCTOR",
+        "allowed_roles": [
+          "Patient"
+        ]
+      },
+      {
+        "endpoint_id": "EP_GET_APPOINTMENTS",
+        "allowed_roles": [
+          "Patient"
+        ]
+      },
+      {
+        "endpoint_id": "EP_CREATE_APPOINTMENT",
+        "allowed_roles": [
+          "Patient"
+        ]
+      },
+      {
+        "endpoint_id": "EP_GET_PRESCRIPTIONS",
+        "allowed_roles": [
+          "Patient"
+        ]
+      },
+      {
+        "endpoint_id": "EP_CREATE_PRESCRIPTION",
+        "allowed_roles": [
+          "Patient"
         ]
       }
     ],
@@ -348,7 +808,7 @@
   "assumptions": [
     {
       "context": "User Roles",
-      "assumption": "No roles specified. Standard RBAC [Admin, Member, Guest] provisioned by compiler."
+      "assumption": "No roles specified. Standard RBAC [Patient, Doctor] provisioned by compiler."
     }
   ],
   "execution_plans": {
@@ -360,26 +820,47 @@
         "depends_on": []
       },
       {
-        "id": "STEP_2_DB_MIGRATION_ORDERS",
+        "id": "STEP_2_DB_MIGRATION_PATIENTS",
         "action": "CREATE_TABLE",
-        "description": "Create database table: \"orders\"",
+        "description": "Create database table: \"patients\"",
         "depends_on": []
       },
       {
-        "id": "STEP_3_API_GATEWAY_SYNC",
+        "id": "STEP_3_DB_MIGRATION_DOCTORS",
+        "action": "CREATE_TABLE",
+        "description": "Create database table: \"doctors\"",
+        "depends_on": []
+      },
+      {
+        "id": "STEP_4_DB_MIGRATION_APPOINTMENTS",
+        "action": "CREATE_TABLE",
+        "description": "Create database table: \"appointments\"",
+        "depends_on": []
+      },
+      {
+        "id": "STEP_5_DB_MIGRATION_PRESCRIPTIONS",
+        "action": "CREATE_TABLE",
+        "description": "Create database table: \"prescriptions\"",
+        "depends_on": []
+      },
+      {
+        "id": "STEP_6_API_GATEWAY_SYNC",
         "action": "REGISTER_ROUTES",
         "description": "Bind endpoint pathways and request validation schemas",
         "depends_on": [
           "STEP_1_DB_MIGRATION_USERS",
-          "STEP_2_DB_MIGRATION_ORDERS"
+          "STEP_2_DB_MIGRATION_PATIENTS",
+          "STEP_3_DB_MIGRATION_DOCTORS",
+          "STEP_4_DB_MIGRATION_APPOINTMENTS",
+          "STEP_5_DB_MIGRATION_PRESCRIPTIONS"
         ]
       },
       {
-        "id": "STEP_4_UI_FRONTEND_COMPILE",
+        "id": "STEP_7_UI_FRONTEND_COMPILE",
         "action": "DEPLOY_VIEWS",
         "description": "Compile layouts and bind state action data-sources",
         "depends_on": [
-          "STEP_2_API_GATEWAY_SYNC"
+          "STEP_5_API_GATEWAY_SYNC"
         ]
       }
     ]

@@ -2,69 +2,47 @@
   "metadata": {
     "compiler_version": "v1.0.0-prod-python",
     "compilation_time_ms": 0,
-    "timestamp": "2026-06-23T17:06:32Z"
+    "timestamp": "2026-06-23T17:21:59Z"
   },
   "intent_ir": {
     "domain": "CRM",
     "entities": [
       "User",
-      "Contact",
-      "Company",
-      "Deal",
-      "Interaction"
+      "Order"
     ],
     "features": [
-      "Authentication",
-      "Payments",
       "Analytics Dashboard"
     ],
     "roles": [
-      "Admin"
+      "Admin",
+      "Member",
+      "Guest"
     ],
     "ambiguities": [],
     "conflicts": [],
-    "assumptions": [],
-    "raw_prompt": "Build a CRM with login, contacts, dashboard, role-based access, and premium plan with payments. Admins can see analytics."
+    "assumptions": [
+      {
+        "context": "User Roles",
+        "assumption": "No roles specified. Standard RBAC [Admin, Member, Guest] provisioned by compiler."
+      }
+    ],
+    "raw_prompt": "CRM system where customers can view reports. Ensure that there is no users database table and only orders database table exists."
   },
   "architecture_ir": {
     "relationshipGraph": [
       {
         "from": "users",
-        "to": "contacts",
-        "type": "Many-to-Many",
-        "through": null
-      },
-      {
-        "from": "companies",
-        "to": "contacts",
+        "to": "orders",
         "type": "One-to-Many",
-        "foreign_key": "company_id"
-      },
-      {
-        "from": "contacts",
-        "to": "deals",
-        "type": "One-to-Many",
-        "foreign_key": "contact_id"
-      },
-      {
-        "from": "contacts",
-        "to": "interactions",
-        "type": "One-to-Many",
-        "foreign_key": "contact_id"
+        "foreign_key": "user_id"
       }
     ],
     "dataFlowTopology": [
       {
-        "flow_id": "create_contact_flow",
-        "source": "UI.ContactForm.Submit",
-        "transfers_through": "API.PostContactEndpoint",
-        "target": "DB.contacts.insert"
-      },
-      {
-        "flow_id": "get_contacts_flow",
-        "source": "DB.contacts.select",
-        "transfers_through": "API.GetContactsEndpoint",
-        "target": "UI.ContactsList.Rows"
+        "flow_id": "create_order_flow",
+        "source": "UI.OrderForm.Submit",
+        "transfers_through": "API.PostOrderEndpoint",
+        "target": "DB.orders.insert"
       }
     ],
     "routingTopology": {
@@ -74,7 +52,9 @@
           "path": "/dashboard",
           "view": "DashboardView",
           "allowed_roles": [
-            "Admin"
+            "Admin",
+            "Member",
+            "Guest"
           ]
         },
         {
@@ -85,10 +65,12 @@
           ]
         },
         {
-          "path": "/contacts",
-          "view": "ContactsListView",
+          "path": "/orders",
+          "view": "OrderListView",
           "allowed_roles": [
-            "Admin"
+            "Admin",
+            "Member",
+            "Guest"
           ]
         }
       ]
@@ -104,34 +86,42 @@
             "nullable": false
           },
           "email": {
-            "type": "VARCHAR(255)",
+            "type": "VARCHAR(50)",
             "unique": true,
+            "nullable": false
+          },
+          "full_name": {
+            "type": "VARCHAR(100)",
             "nullable": false
           }
         }
       },
-      "contacts": {
+      "orders": {
         "columns": {
           "id": {
             "type": "UUID",
             "primary_key": true,
             "nullable": false
           },
-          "first_name": {
-            "type": "VARCHAR(100)",
-            "nullable": false
-          },
-          "last_name": {
-            "type": "VARCHAR(100)",
-            "nullable": false
-          },
-          "email": {
-            "type": "VARCHAR(255)",
-            "nullable": true
-          },
-          "phone": {
+          "order_number": {
             "type": "VARCHAR(50)",
-            "nullable": true
+            "nullable": false
+          },
+          "total": {
+            "type": "VARCHAR(50)",
+            "nullable": false
+          },
+          "status": {
+            "type": "VARCHAR(50)",
+            "nullable": false
+          },
+          "user_id": {
+            "type": "UUID",
+            "nullable": false,
+            "references": {
+              "table": "users",
+              "column": "id"
+            }
           }
         }
       }
@@ -140,21 +130,22 @@
   "api_schema": {
     "endpoints": [
       {
-        "id": "EP_GET_CONTACTS",
+        "id": "EP_GET_USERS",
         "method": "GET",
-        "path": "/api/v1/contacts",
+        "path": "/api/v1/users",
         "authentication": "Required",
+        "parameters": [],
         "response_body": {
-          "contacts": {
+          "users": {
             "type": "array",
             "items": {
               "id": {
                 "type": "string"
               },
-              "first_name": {
+              "email": {
                 "type": "string"
               },
-              "phone": {
+              "full_name": {
                 "type": "string"
               }
             }
@@ -162,31 +153,100 @@
         },
         "db_operation": {
           "type": "select",
-          "table": "contacts"
+          "table": "users"
         }
       },
       {
-        "id": "EP_CREATE_CONTACT",
+        "id": "EP_CREATE_USER",
         "method": "POST",
-        "path": "/api/v1/contacts",
+        "path": "/api/v1/users",
         "authentication": "Required",
+        "parameters": [],
         "request_body": {
-          "first_name": {
+          "email": {
             "type": "string",
             "required": true
           },
-          "last_name": {
+          "full_name": {
             "type": "string",
             "required": true
-          },
-          "phone": {
-            "type": "string",
-            "required": false
           }
         },
         "db_operation": {
           "type": "insert",
-          "table": "contacts"
+          "table": "users"
+        }
+      },
+      {
+        "id": "EP_GET_ORDERS",
+        "method": "GET",
+        "path": "/api/v1/users/{userId}/orders",
+        "authentication": "Required",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "response_body": {
+          "orders": {
+            "type": "array",
+            "items": {
+              "id": {
+                "type": "string"
+              },
+              "order_number": {
+                "type": "string"
+              },
+              "total": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "user_id": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "db_operation": {
+          "type": "select",
+          "table": "orders"
+        }
+      },
+      {
+        "id": "EP_CREATE_ORDER",
+        "method": "POST",
+        "path": "/api/v1/users/{userId}/orders",
+        "authentication": "Required",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "path",
+            "type": "string",
+            "required": true
+          }
+        ],
+        "request_body": {
+          "order_number": {
+            "type": "string",
+            "required": true
+          },
+          "total": {
+            "type": "string",
+            "required": true
+          },
+          "status": {
+            "type": "string",
+            "required": true
+          }
+        },
+        "db_operation": {
+          "type": "insert",
+          "table": "orders"
         }
       }
     ]
@@ -194,23 +254,26 @@
   "ui_schema": {
     "components": [
       {
-        "id": "COMP_CONTACTS_LIST",
-        "type": "TableList",
+        "id": "COMP_ORDER_LIST",
+        "type": "KanbanBoard",
         "data_source": {
-          "endpoint_id": "EP_GET_CONTACTS",
-          "params": {}
+          "endpoint_id": "EP_GET_ORDERS",
+          "params": {
+            "userId": "state.activeUserId"
+          }
         }
       },
       {
-        "id": "COMP_CONTACT_FORM",
+        "id": "COMP_ORDER_FORM",
         "type": "Form",
         "actions": {
           "onSubmit": {
-            "endpoint_id": "EP_CREATE_CONTACT",
+            "endpoint_id": "EP_CREATE_ORDER",
             "params": {
-              "first_name": "form.values.first_name",
-              "last_name": "form.values.last_name",
-              "phone": "form.values.phone"
+              "order_number": "form.values.order_number",
+              "total": "form.values.total",
+              "status": "form.values.status",
+              "userId": "state.activeUserId"
             }
           }
         }
@@ -220,18 +283,34 @@
   "authentication_rules": {
     "auth_provider": "JWT",
     "roles": [
-      "Admin"
+      "Admin",
+      "Member",
+      "Guest"
     ],
     "endpoint_permissions": [
       {
-        "endpoint_id": "EP_GET_CONTACTS",
+        "endpoint_id": "EP_GET_USERS",
         "allowed_roles": [
           "Admin",
           "Member"
         ]
       },
       {
-        "endpoint_id": "EP_CREATE_CONTACT",
+        "endpoint_id": "EP_CREATE_USER",
+        "allowed_roles": [
+          "Admin",
+          "Member"
+        ]
+      },
+      {
+        "endpoint_id": "EP_GET_ORDERS",
+        "allowed_roles": [
+          "Admin",
+          "Member"
+        ]
+      },
+      {
+        "endpoint_id": "EP_CREATE_ORDER",
         "allowed_roles": [
           "Admin",
           "Member"
@@ -241,14 +320,7 @@
     "row_level_security": []
   },
   "business_logic_rules": {
-    "rules": [
-      {
-        "id": "RULE_PREMIUM_PLAN_GATE",
-        "event": "api.request.execute",
-        "condition": "request.user.plan != 'Premium' and '/premium-feature' in request.path",
-        "action": "ABORT('This feature requires a premium plan. Please upgrade.')"
-      }
-    ]
+    "rules": []
   },
   "validation_reports": {
     "valid": true,
@@ -258,10 +330,10 @@
     "total_repairs_needed": 1,
     "repair_attempts": [
       {
-        "error": "Type mismatch at api.endpoints[1].request_body.phone",
-        "repair": "Synced DB column contacts.phone type from INTEGER to VARCHAR(50)",
+        "error": "Type mismatch at api.endpoints[1].request_body.email",
+        "repair": "Synced DB column users.email type from INTEGER to VARCHAR(50)",
         "status": "Resolved",
-        "target_ast_subtree": "database.tables.contacts.columns.phone",
+        "target_ast_subtree": "database.tables.users.columns.email",
         "patch_applied": {
           "before": {
             "type": "INTEGER"
@@ -273,7 +345,12 @@
       }
     ]
   },
-  "assumptions": [],
+  "assumptions": [
+    {
+      "context": "User Roles",
+      "assumption": "No roles specified. Standard RBAC [Admin, Member, Guest] provisioned by compiler."
+    }
+  ],
   "execution_plans": {
     "execution_graph_nodes": [
       {
@@ -283,9 +360,9 @@
         "depends_on": []
       },
       {
-        "id": "STEP_2_DB_MIGRATION_CONTACTS",
+        "id": "STEP_2_DB_MIGRATION_ORDERS",
         "action": "CREATE_TABLE",
-        "description": "Create database table: \"contacts\"",
+        "description": "Create database table: \"orders\"",
         "depends_on": []
       },
       {
@@ -294,7 +371,7 @@
         "description": "Bind endpoint pathways and request validation schemas",
         "depends_on": [
           "STEP_1_DB_MIGRATION_USERS",
-          "STEP_2_DB_MIGRATION_CONTACTS"
+          "STEP_2_DB_MIGRATION_ORDERS"
         ]
       },
       {

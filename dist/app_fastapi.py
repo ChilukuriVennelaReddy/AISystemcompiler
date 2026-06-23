@@ -17,14 +17,14 @@ def startup():
             conn.commit()
             print("Database schemas initialized.")
 
-@app.get("/api/v1/contacts")
-def ep_get_contacts(role: str = Header('Guest')):
+@app.get("/api/v1/users")
+def ep_get_users(role: str = Header('Guest')):
     if role not in ['Admin', 'Member']:
         raise HTTPException(status_code=403, detail="Role not authorized to perform action.")
 
     with sqlite3.connect("app.db") as conn:
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM "contacts"')
+        cursor.execute('SELECT * FROM "users"')
         rows = cursor.fetchall()
         cols = [c[0] for c in cursor.description]
         results = [dict(zip(cols, r)) for r in rows]
@@ -33,19 +33,53 @@ def ep_get_contacts(role: str = Header('Guest')):
 
 
 
-class EP_CREATE_CONTACTRequest(BaseModel):
-    first_name: str
-    last_name: str
-    phone: Optional[str] = None
+class EP_CREATE_USERRequest(BaseModel):
+    email: str
+    full_name: str
 
-@app.post("/api/v1/contacts")
-def ep_create_contact(role: str = Header('Guest'), body: EP_CREATE_CONTACTRequest):
+@app.post("/api/v1/users")
+def ep_create_user(role: str = Header('Guest'), body: EP_CREATE_USERRequest):
     if role not in ['Admin', 'Member']:
         raise HTTPException(status_code=403, detail="Role not authorized to perform action.")
 
     with sqlite3.connect("app.db") as conn:
         cursor = conn.cursor()
-        cursor.execute('INSERT INTO "contacts" ("first_name", "last_name", "phone") VALUES (?, ?, ?)', (body.first_name, body.last_name, body.phone,))
+        cursor.execute('INSERT INTO "users" ("email", "full_name") VALUES (?, ?)', (body.email, body.full_name,))
+        conn.commit()
+        return {"status": "Success", "id": cursor.lastrowid}
+
+
+
+
+@app.get("/api/v1/users/userId/orders")
+def ep_get_orders(role: str = Header('Guest'), userId: str):
+    if role not in ['Admin', 'Member']:
+        raise HTTPException(status_code=403, detail="Role not authorized to perform action.")
+
+    with sqlite3.connect("app.db") as conn:
+        cursor = conn.cursor()
+        cursor.execute('SELECT * FROM "orders"')
+        rows = cursor.fetchall()
+        cols = [c[0] for c in cursor.description]
+        results = [dict(zip(cols, r)) for r in rows]
+        return {"data": results}
+
+
+
+
+class EP_CREATE_ORDERRequest(BaseModel):
+    order_number: str
+    total: str
+    status: str
+
+@app.post("/api/v1/users/userId/orders")
+def ep_create_order(role: str = Header('Guest'), userId: str, body: EP_CREATE_ORDERRequest):
+    if role not in ['Admin', 'Member']:
+        raise HTTPException(status_code=403, detail="Role not authorized to perform action.")
+
+    with sqlite3.connect("app.db") as conn:
+        cursor = conn.cursor()
+        cursor.execute('INSERT INTO "orders" ("order_number", "total", "status") VALUES (?, ?, ?)', (body.order_number, body.total, body.status,))
         conn.commit()
         return {"status": "Success", "id": cursor.lastrowid}
 

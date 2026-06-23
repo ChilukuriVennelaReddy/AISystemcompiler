@@ -242,7 +242,7 @@ def startup():
                         element_code += f"""
     # Fetching from backend
     try:
-        res = requests.get(f"http://127.0.0.1:8001{clean_path}", headers={{"role": user_role}})
+        res = requests.get(f"{{API_BASE_URL}}{clean_path}", headers={{"role": user_role}})
         if res.status_code == 200:
             data = res.json().get("data", [])
             if data:
@@ -252,7 +252,7 @@ def startup():
         else:
             st.error(f"API Error ({{res.status_code}}): {{res.json().get('detail', res.text)}}")
     except Exception as e:
-        st.warning(f"Could not connect to live API backend on port 8001: {{str(e)}}. Showing mock sample data:")
+        st.warning(f"Could not connect to live API backend: {{str(e)}}. Showing mock sample data:")
         st.write([
             {{"id": "1", "title": "Setup database tables", "status": "In Progress"}},
             {{"id": "2", "title": "Configure payments and auth", "status": "Todo"}}
@@ -285,21 +285,25 @@ def startup():
         if submitted:
             payload = {{{payload_str}}}
             try:
-                res = requests.post(f"http://127.0.0.1:8001{clean_path}", json=payload, headers={{"role": user_role}})
+                res = requests.post(f"{{API_BASE_URL}}{clean_path}", json=payload, headers={{"role": user_role}})
                 if res.status_code == 200:
                     st.success("Record created successfully in database!")
                     st.json(res.json())
                 else:
                     st.error(f"Submission failed ({{res.status_code}}): {{res.json().get('detail', res.text)}}")
             except Exception as e:
-                st.error(f"Could not connect to live API server on port 8001: {{str(e)}}")
+                st.error(f"Could not connect to live API server: {{str(e)}}")
 """
             ui_elements_code.append(element_code)
             
         full_code = f"""import streamlit as st
 import requests
+import os
 
 st.set_page_config(layout="wide")
+
+# Connect to compiled API backend
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8001")
 
 st.title("Compiled App Runtime UI - {domain}")
 

@@ -19,10 +19,10 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap');
     
-    /* Global Base44 Light-Gradient Theme */
+    /* Custom Slate-Indigo Pastel Theme */
     [data-testid="stAppViewContainer"] {
-        background: linear-gradient(180deg, #cffafe 0%, #e0f2fe 35%, #fef9c3 100%) !important;
-        color: #1e293b !important;
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 60%, #e0f2fe 100%) !important;
+        color: #334155 !important;
         font-family: 'Inter', sans-serif;
     }
     
@@ -32,13 +32,13 @@ st.markdown("""
     
     /* Clean Sidebar */
     [data-testid="stSidebar"] {
-        background-color: rgba(255, 255, 255, 0.7) !important;
+        background-color: rgba(255, 255, 255, 0.8) !important;
         backdrop-filter: blur(10px);
         border-right: 1px solid rgba(0, 0, 0, 0.05);
     }
     
     .stMarkdown, p, span, label {
-        color: #1e293b !important;
+        color: #334155 !important;
     }
 
     /* Page Padding Adjustments */
@@ -50,36 +50,37 @@ st.markdown("""
         max-width: 1200px !important;
     }
 
-    /* Base44 Centered Header Styling */
-    .base44-title {
+    /* Custom Centered Header Styling */
+    .app-title {
         font-family: 'Plus Jakarta Sans', sans-serif !important;
         font-weight: 800;
-        font-size: 52px;
+        font-size: 46px;
         color: #0f172a;
         text-align: center;
-        margin-bottom: 8px;
+        margin-bottom: 12px;
         letter-spacing: -1.5px;
         line-height: 1.1;
     }
     
-    .base44-subtitle {
+    .app-subtitle {
         font-family: 'Inter', sans-serif;
         color: #475569 !important;
-        font-size: 18px;
+        font-size: 17px;
         text-align: center;
         margin-bottom: 35px;
-        max-width: 600px;
+        max-width: 650px;
         margin-left: auto;
         margin-right: auto;
+        line-height: 1.5;
     }
 
-    /* Base44 Rounded Card Input Box */
-    .base44-input-card {
+    /* Custom Rounded Card Input Box */
+    .app-input-card {
         background: #ffffff;
-        border-radius: 24px;
+        border-radius: 20px;
         padding: 24px;
-        box-shadow: 0 15px 40px rgba(15, 23, 42, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.8);
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+        border: 1px solid rgba(226, 232, 240, 0.8);
         margin-bottom: 20px;
     }
     
@@ -96,52 +97,52 @@ st.markdown("""
     /* Preset buttons (Pills) styling */
     div.stButton > button {
         border-radius: 9999px !important;
-        background-color: rgba(255, 255, 255, 0.65) !important;
-        color: #334155 !important;
-        border: 1px solid rgba(0, 0, 0, 0.08) !important;
+        background-color: rgba(255, 255, 255, 0.8) !important;
+        color: #475569 !important;
+        border: 1px solid rgba(0, 0, 0, 0.06) !important;
         padding: 6px 18px !important;
         font-size: 13px !important;
         font-weight: 500 !important;
         transition: all 0.2s ease !important;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.02) !important;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.01) !important;
     }
     
     div.stButton > button:hover {
         background-color: #ffffff !important;
-        border-color: rgba(0, 0, 0, 0.2) !important;
+        border-color: #cbd5e1 !important;
         color: #0f172a !important;
         transform: translateY(-1px) !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.05) !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.03) !important;
     }
 
-    /* Glowing Orange Submit Button Override */
-    .orange-submit-btn > div > button {
-        background: linear-gradient(135deg, #ff6b35 0%, #ff5722 100%) !important;
+    /* Sleek Slate-Indigo Submit Button Override */
+    .indigo-submit-btn > div > button {
+        background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%) !important;
         color: #ffffff !important;
         border-radius: 9999px !important;
         padding: 10px 30px !important;
         font-weight: 600 !important;
         font-size: 15px !important;
-        box-shadow: 0 4px 14px rgba(255, 87, 34, 0.3) !important;
+        box-shadow: 0 4px 14px rgba(79, 70, 229, 0.25) !important;
         border: none !important;
     }
     
-    .orange-submit-btn > div > button:hover {
-        background: linear-gradient(135deg, #ff7e4f 0%, #ff6b35 100%) !important;
-        box-shadow: 0 6px 20px rgba(255, 87, 34, 0.45) !important;
+    .indigo-submit-btn > div > button:hover {
+        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+        box-shadow: 0 6px 20px rgba(79, 70, 229, 0.35) !important;
         transform: translateY(-1px) !important;
         color: #ffffff !important;
     }
 
     /* Glassmorphic output boxes */
     .output-card {
-        background: rgba(255, 255, 255, 0.65) !important;
+        background: rgba(255, 255, 255, 0.75) !important;
         backdrop-filter: blur(12px);
-        border: 1px solid rgba(255, 255, 255, 0.8);
+        border: 1px solid rgba(255, 255, 255, 0.9);
         border-radius: 16px;
         padding: 24px;
         margin-top: 30px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
     }
     
     h1, h2, h3, h4, h5, h6 {
@@ -158,8 +159,8 @@ st.markdown("""
         color: #64748b !important;
     }
     button[aria-selected="true"] {
-        color: #ff5722 !important;
-        border-bottom-color: #ff5722 !important;
+        color: #4f46e5 !important;
+        border-bottom-color: #4f46e5 !important;
     }
 
     /* Badge tags */
@@ -230,7 +231,7 @@ st.markdown("""
         overflow-y: auto;
     }
 </style>
-""", unsafe_allow_html=True)
+"""), unsafe_allow_html=True)
 
 BACKEND_URL = "http://127.0.0.1:8000"
 
@@ -297,9 +298,9 @@ if st.sidebar.button("Run Regression Test Suite 🧪"):
 left_col, center_col, right_col = st.columns([1, 6, 1])
 
 with center_col:
-    # 1. Base44 Headers
-    st.markdown('<div class="base44-title">Turn your ideas into apps</div>', unsafe_allow_html=True)
-    st.markdown('<div class="base44-subtitle">Base44 lets you build fully-functional apps in minutes with just your words. No coding necessary.</div>', unsafe_allow_html=True)
+    # 1. Custom Headers
+    st.markdown('<div class="app-title">Turn requirements into apps</div>', unsafe_allow_html=True)
+    st.markdown('<div class="app-subtitle">Translate natural language requirements into fully validated database schemas, API servers, and UI frontends instantly.</div>', unsafe_allow_html=True)
     
     # Session state to load preset prompt
     if "prompt_text" not in st.session_state:
@@ -307,28 +308,30 @@ with center_col:
         
     # Presets rows
     col_p1, col_p2, col_p3 = st.columns(3)
-    if col_p1.button("📋 Reporting Dashboard"):
-        st.session_state["prompt_text"] = "Build a CRM with login, contacts, dashboard, role-based access, and premium plan with payments. Admins can see analytics."
+    if col_p1.button("📋 Classroom Portal"):
+        st.session_state["prompt_text"] = "Create a classroom learning management system with courses, lessons, student enrollments, quizzes, grades, and teacher analytics."
         st.rerun()
-    if col_p2.button("🗂️ Task Management"):
-        st.session_state["prompt_text"] = "Create a Kanban task management board with workspaces, projects, status cards, and comments. Guest roles are read-only."
-    if col_p3.button("🛍️ E-commerce Shop"):
-        st.session_state["prompt_text"] = "Design an e-commerce shop with product catalogs, shopping cart, billing checkouts, and role-based discount permissions."
+    if col_p2.button("🗂️ Library Loan Manager"):
+        st.session_state["prompt_text"] = "Build a library management portal with books catalog, borrowing loans, member profiles, and status updates."
+        st.rerun()
+    if col_p3.button("🏥 Clinic Appointment Portal"):
+        st.session_state["prompt_text"] = "Design a hospital clinic portal with patient profiles, doctor records, appointment schedules, and prescriptions."
+        st.rerun()
 
-    # 2. Base44 Input Card Box
-    st.markdown('<div class="base44-input-card">', unsafe_allow_html=True)
+    # 2. Custom Input Card Box
+    st.markdown('<div class="app-input-card">', unsafe_allow_html=True)
     prompt_input = st.text_area(
         "", 
         value=st.session_state["prompt_text"], 
         height=130, 
-        placeholder="Make a note - e.g., Build a CRM with contacts and billing..."
+        placeholder="Enter natural language requirements - e.g., Build a CRM with contacts and billing..."
     )
     
     col_card_f1, col_card_f2 = st.columns([2, 1])
     with col_card_f1:
         trigger_repair_val = st.checkbox("Plan / Repair", value=True)
     with col_card_f2:
-        st.markdown('<div class="orange-submit-btn">', unsafe_allow_html=True)
+        st.markdown('<div class="indigo-submit-btn">', unsafe_allow_html=True)
         compile_btn = st.button("Submit →")
         st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
@@ -548,9 +551,9 @@ if comp and comp.get("success"):
                 if is_deployed:
                     st.markdown(f'<div class="status-pass"><span class="pulse-dot"></span> APPLICATION RUNNING LIVE (SQLite, FastAPI, Streamlit)</div>', unsafe_allow_html=True)
                     st.markdown(f"""
-                    <div style="background: rgba(16, 185, 129, 0.05); border: 1px solid rgba(16, 185, 129, 0.15); border-radius: 8px; padding: 15px; margin-top: 10px;">
-                        <a href="{ui_url}" target="_blank" style="color: #059669; font-weight: 600; text-decoration: none; font-size: 16px;">👉 Open Live Deployed Frontend UI (Port 8502) 🌐</a><br>
-                        <a href="{api_url}/docs" target="_blank" style="color: #2563eb; font-weight: 600; text-decoration: none; font-size: 14px; display: inline-block; margin-top: 8px;">👉 Open API Backend docs (Port 8001) 🔌</a>
+                    <div style="background: rgba(79, 70, 229, 0.05); border: 1px solid rgba(79, 70, 229, 0.15); border-radius: 8px; padding: 15px; margin-top: 10px;">
+                        <a href="{ui_url}" target="_blank" style="color: #4f46e5; font-weight: 600; text-decoration: none; font-size: 16px;">👉 Open Live Deployed Frontend UI 🌐</a><br>
+                        <a href="{api_url}/docs" target="_blank" style="color: #2563eb; font-weight: 600; text-decoration: none; font-size: 14px; display: inline-block; margin-top: 8px;">👉 Open API Backend Documentation 🔌</a>
                     </div>
                     """, unsafe_allow_html=True)
                 elif is_cloud:
@@ -563,7 +566,7 @@ if comp and comp.get("success"):
                     st.button("⚡ Live Deploy (Disabled in Cloud)", disabled=True, use_container_width=True)
                 else:
                     if st.button("⚡ Deploy App Live", use_container_width=True):
-                        with st.spinner("Compiling target, provisioning SQLite, starting backend (8001) & frontend (8502)..."):
+                        with st.spinner("Compiling target, provisioning database, starting backend API & frontend application UI..."):
                             try:
                                 dep_res = httpx.post(f"{BACKEND_URL}/deploy", timeout=45.0)
                                 if dep_res.status_code == 200:

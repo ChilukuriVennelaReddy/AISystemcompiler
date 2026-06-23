@@ -21,73 +21,77 @@ Output ONLY valid JSON matching this exact structure. Do not include markdown co
         if llm_result:
             return llm_result
 
-        # --- FALLBACK ENGINE ---
-        domain = intent_ir.get('domain', 'General CRUD')
-        entities = intent_ir.get('entities', ['User'])
-        roles = intent_ir.get('roles', ['Admin'])
+        # --- DYNAMIC FALLBACK SYSTEM DESIGN ---
+        entities = intent_ir.get("entities", ["User"])
+        roles = intent_ir.get("roles", ["Admin"])
+        domain = intent_ir.get("domain", "General CRUD")
 
         relationship_graph = []
+        data_flow_topology = []
+        
+        # Lowercase pluralized helper
+        def plural(name: str) -> str:
+            name_lower = name.lower()
+            if name_lower.endswith('y'):
+                return name_lower[:-1] + "ies"
+            elif name_lower.endswith('s'):
+                return name_lower
+            return name_lower + "s"
 
-        if 'User' in entities:
-            if 'Workspace' in entities or 'Contact' in entities:
-                primary_target = 'workspaces' if 'Workspace' in entities else 'contacts'
+        # Dynamically link entities
+        # E.g. User, Project, Task -> users, projects, tasks
+        plural_entities = [plural(e) for e in entities]
+        
+        # Link all entities sequentially or to Users
+        if len(plural_entities) > 1:
+            main_parent = plural_entities[0] # Usually users
+            for idx in range(1, len(plural_entities)):
+                child = plural_entities[idx]
+                parent = plural_entities[idx - 1]
+                
+                # If linking to users, use user_id, else parent_id
+                fk_name = "user_id" if parent == "users" else f"{entities[idx-1].lower()}_id"
                 relationship_graph.append({
-                    "from": 'users',
-                    "to": primary_target,
-                    "type": 'Many-to-Many',
-                    "through": 'workspace_members' if primary_target == 'workspaces' else None
+                    "from": parent,
+                    "to": child,
+                    "type": "One-to-Many",
+                    "foreign_key": fk_name
+                })
+                
+                # Add data flow mappings dynamically
+                data_flow_topology.append({
+                    "flow_id": f"create_{entities[idx].lower()}_flow",
+                    "source": f"UI.{entities[idx]}Form.Submit",
+                    "transfers_through": f"API.Post{entities[idx]}Endpoint",
+                    "target": f"DB.{child}.insert"
                 })
 
-        if domain == 'Kanban Project Management':
-            relationship_graph.extend([
-                {"from": 'workspaces', "to": 'projects', "type": 'One-to-Many', "foreign_key": 'workspace_id'},
-                {"from": 'projects', "to": 'tasks', "type": 'One-to-Many', "foreign_key": 'project_id'},
-                {"from": 'tasks', "to": 'comments', "type": 'One-to-Many', "foreign_key": 'task_id'},
-                {"from": 'users', "to": 'tasks', "type": 'One-to-Many', "foreign_key": 'assignee_id', "alias": 'assigned_tasks'}
-            ])
-        elif domain == 'CRM':
-            relationship_graph.extend([
-                {"from": 'companies', "to": 'contacts', "type": 'One-to-Many', "foreign_key": 'company_id'},
-                {"from": 'contacts', "to": 'deals', "type": 'One-to-Many', "foreign_key": 'contact_id'},
-                {"from": 'contacts', "to": 'interactions', "type": 'One-to-Many', "foreign_key": 'contact_id'}
-            ])
-        elif domain == 'E-commerce':
-            relationship_graph.extend([
-                {"from": 'users', "to": 'orders', "type": 'One-to-Many', "foreign_key": 'user_id'},
-                {"from": 'orders', "to": 'order_items', "type": 'One-to-Many', "foreign_key": 'order_id'},
-                {"from": 'products', "to": 'order_items', "type": 'One-to-Many', "foreign_key": 'product_id'}
-            ])
+        # If data flows is empty, add generic crud flow
+        if not data_flow_topology:
+            data_flow_topology.append({
+                "flow_id": "generic_read_flow",
+                "source": "DB.users.select",
+                "transfers_through": "API.GetUsersEndpoint",
+                "target": "UI.UsersList.View"
+            })
 
-        data_flow_topology = []
-        if domain == 'Kanban Project Management':
-            data_flow_topology.extend([
-                {"flow_id": 'create_task_flow', "source": 'UI.TaskModal.SubmitButton', "transfers_through": 'API.PostTaskEndpoint', "target": 'DB.tasks.insert'},
-                {"flow_id": 'get_task_board_flow', "source": 'DB.tasks.select', "transfers_through": 'API.GetTasksEndpoint', "target": 'UI.KanbanBoard.Cards'}
-            ])
-        elif domain == 'CRM':
-            data_flow_topology.extend([
-                {"flow_id": 'create_contact_flow', "source": 'UI.ContactForm.Submit', "transfers_through": 'API.PostContactEndpoint', "target": 'DB.contacts.insert'},
-                {"flow_id": 'get_contacts_flow', "source": 'DB.contacts.select', "transfers_through": 'API.GetContactsEndpoint', "target": 'UI.ContactsList.Rows'}
-            ])
-        else:
-            data_flow_topology.append(
-                {"flow_id": 'generic_create_flow', "source": 'UI.Form.Submit', "transfers_through": 'API.PostEndpoint', "target": 'DB.generic.insert'}
-            )
-
+        # Dynamic routes based on roles and entities
         routing_topology = {
-            "base_path": '/app',
+            "base_path": "/app",
             "routes": [
-                {"path": '/dashboard', "view": 'DashboardView', "allowed_roles": roles},
-                {"path": '/settings', "view": 'SettingsView', "allowed_roles": ['Admin']}
+                {"path": "/dashboard", "view": "DashboardView", "allowed_roles": roles},
+                {"path": "/settings", "view": "SettingsView", "allowed_roles": ["Admin"] if "Admin" in roles else roles}
             ]
         }
-
-        if domain == 'Kanban Project Management':
-            routing_topology["routes"].append({"path": '/workspace/:workspaceId', "view": 'WorkspaceView', "allowed_roles": roles})
-        elif domain == 'CRM':
-            routing_topology["routes"].append({"path": '/contacts', "view": 'ContactsListView', "allowed_roles": roles})
-        elif domain == 'E-commerce':
-            routing_topology["routes"].append({"path": '/shop', "view": 'ProductsShopView', "allowed_roles": roles})
+        
+        # Add dynamic views for each entity
+        for idx in range(1, min(len(entities), 4)):
+            entity_plural = plural(entities[idx])
+            routing_topology["routes"].append({
+                "path": f"/{entity_plural}",
+                "view": f"{entities[idx]}ListView",
+                "allowed_roles": roles
+            })
 
         return {
             "relationshipGraph": relationship_graph,

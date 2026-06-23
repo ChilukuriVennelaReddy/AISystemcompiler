@@ -1,12 +1,14 @@
 CREATE TABLE IF NOT EXISTS "users" (
   "id" TEXT PRIMARY KEY NOT NULL,
-  "email" TEXT NOT NULL UNIQUE
+  "email" TEXT NOT NULL UNIQUE,
+  "full_name" TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS "contacts" (
+CREATE TABLE IF NOT EXISTS "orders" (
   "id" TEXT PRIMARY KEY NOT NULL,
-  "first_name" TEXT NOT NULL,
-  "last_name" TEXT NOT NULL,
-  "email" TEXT,
-  "phone" TEXT
+  "order_number" TEXT NOT NULL,
+  "total" TEXT NOT NULL,
+  "status" TEXT NOT NULL,
+  "user_id" TEXT NOT NULL,
+  FOREIGN KEY ("user_id") REFERENCES "users" ("id")
 );

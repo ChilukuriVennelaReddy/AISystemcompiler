@@ -1,0 +1,408 @@
+{
+  "$schema_version": "1.2.0",
+  "metadata": {
+    "target_application": "Collaborative SaaS Project Board",
+    "compiler_version": "v3.8.2-prod",
+    "compilation_timestamp": "2026-06-23T21:30:10Z",
+    "compilation_time_ms": 1420
+  },
+  "intent_ir": {
+    "prompt_summary": "A collaborative Kanban board for teams. Users can join workspaces, create projects, manage tasks, comment on tasks, and view activity logs. Admins have full access, members can edit within workspaces, and guests can only view tasks.",
+    "extracted_entities": [
+      { "name": "Workspace", "type": "Core", "description": "Organizational container for projects and users." },
+      { "name": "Project", "type": "Core", "description": "Contains tasks and is associated with a single workspace." },
+      { "name": "Task", "type": "Core", "description": "An item of work that belongs to a project and can be assigned to a user." },
+      { "name": "Comment", "type": "Supporting", "description": "Feedback left on a task by a user." },
+      { "name": "User", "type": "System", "description": "App account with profile details." },
+      { "name": "ActivityLog", "type": "Supporting", "description": "Auditable log of state changes for tasks." }
+    ],
+    "operations": [
+      { "name": "create_workspace", "actor": "Admin" },
+      { "name": "invite_member", "actor": "Admin" },
+      { "name": "create_project", "actor": "Admin, Member" },
+      { "name": "manage_tasks", "actor": "Admin, Member", "actions": ["create", "update", "assign", "delete"] },
+      { "name": "add_comment", "actor": "Admin, Member", "actions": ["create", "delete_own"] },
+      { "name": "view_dashboard", "actor": "Admin, Member, Guest" }
+    ],
+    "constraints": [
+      { "id": "C1", "type": "security", "rule": "Guests cannot write or modify database data" },
+      { "id": "C2", "type": "data_integrity", "rule": "Tasks must belong to a project, and projects must belong to a workspace" }
+    ]
+  },
+  "architecture_ir": {
+    "relationship_graph": [
+      { "from": "users", "to": "workspaces", "type": "Many-to-Many", "through": "workspace_members" },
+      { "from": "workspaces", "to": "projects", "type": "One-to-Many", "foreign_key": "workspace_id" },
+      { "from": "projects", "to": "tasks", "type": "One-to-Many", "foreign_key": "project_id" },
+      { "from": "tasks", "to": "comments", "type": "One-to-Many", "foreign_key": "task_id" },
+      { "from": "users", "to": "tasks", "type": "One-to-Many", "foreign_key": "assignee_id", "alias": "assigned_tasks" },
+      { "from": "users", "to": "comments", "type": "One-to-Many", "foreign_key": "author_id", "alias": "user_comments" }
+    ],
+    "data_flow_topology": [
+      { "flow_id": "create_task_flow", "source": "UI.TaskModal.SubmitButton", "transfers_through": "API.PostTaskEndpoint", "target": "DB.tasks.insert" },
+      { "flow_id": "get_task_board_flow", "source": "DB.tasks.select", "transfers_through": "API.GetTasksEndpoint", "target": "UI.KanbanBoard.Cards" }
+    ],
+    "routing_topology": {
+      "base_path": "/app",
+      "routes": [
+        { "path": "/dashboard", "view": "DashboardView", "allowed_roles": ["Admin", "Member", "Guest"] },
+        { "path": "/workspace/:workspaceId", "view": "WorkspaceView", "allowed_roles": ["Admin", "Member", "Guest"] },
+        { "path": "/settings", "view": "SettingsView", "allowed_roles": ["Admin"] }
+      ]
+    }
+  },
+  "database_schema": {
+    "tables": {
+      "users": {
+        "columns": {
+          "id": { "type": "UUID", "primary_key": true, "nullable": false },
+          "email": { "type": "VARCHAR(255)", "unique": true, "nullable": false },
+          "full_name": { "type": "VARCHAR(100)", "nullable": false },
+          "created_at": { "type": "TIMESTAMP", "default": "NOW()", "nullable": false }
+        }
+      },
+      "workspaces": {
+        "columns": {
+          "id": { "type": "UUID", "primary_key": true, "nullable": false },
+          "name": { "type": "VARCHAR(100)", "nullable": false },
+          "slug": { "type": "VARCHAR(100)", "unique": true, "nullable": false },
+          "created_at": { "type": "TIMESTAMP", "default": "NOW()", "nullable": false }
+        }
+      },
+      "workspace_members": {
+        "columns": {
+          "workspace_id": { "type": "UUID", "primary_key": true, "nullable": false, "references": { "table": "workspaces", "column": "id" } },
+          "user_id": { "type": "UUID", "primary_key": true, "nullable": false, "references": { "table": "users", "column": "id" } },
+          "role": { "type": "VARCHAR(50)", "nullable": false, "check": "role IN ('Admin', 'Member', 'Guest')" },
+          "joined_at": { "type": "TIMESTAMP", "default": "NOW()", "nullable": false }
+        }
+      },
+      "projects": {
+        "columns": {
+          "id": { "type": "UUID", "primary_key": true, "nullable": false },
+          "workspace_id": { "type": "UUID", "nullable": false, "references": { "table": "workspaces", "column": "id" } },
+          "name": { "type": "VARCHAR(100)", "nullable": false },
+          "description": { "type": "TEXT", "nullable": true },
+          "created_at": { "type": "TIMESTAMP", "default": "NOW()", "nullable": false }
+        },
+        "indexes": [
+          { "name": "idx_projects_workspace", "columns": ["workspace_id"] }
+        ]
+      },
+      "tasks": {
+        "columns": {
+          "id": { "type": "UUID", "primary_key": true, "nullable": false },
+          "project_id": { "type": "UUID", "nullable": false, "references": { "table": "projects", "column": "id" } },
+          "title": { "type": "VARCHAR(200)", "nullable": false },
+          "description": { "type": "TEXT", "nullable": true },
+          "status": { "type": "VARCHAR(50)", "default": "'Todo'", "nullable": false, "check": "status IN ('Todo', 'In_Progress', 'QA', 'Done')" },
+          "assignee_id": { "type": "UUID", "nullable": true, "references": { "table": "users", "column": "id" } },
+          "due_date": { "type": "TIMESTAMP", "nullable": true },
+          "created_at": { "type": "TIMESTAMP", "default": "NOW()", "nullable": false }
+        },
+        "indexes": [
+          { "name": "idx_tasks_project", "columns": ["project_id"] },
+          { "name": "idx_tasks_status", "columns": ["status"] }
+        ]
+      },
+      "comments": {
+        "columns": {
+          "id": { "type": "UUID", "primary_key": true, "nullable": false },
+          "task_id": { "type": "UUID", "nullable": false, "references": { "table": "tasks", "column": "id" } },
+          "author_id": { "type": "UUID", "nullable": false, "references": { "table": "users", "column": "id" } },
+          "content": { "type": "TEXT", "nullable": false },
+          "created_at": { "type": "TIMESTAMP", "default": "NOW()", "nullable": false }
+        }
+      },
+      "activity_logs": {
+        "columns": {
+          "id": { "type": "UUID", "primary_key": true, "nullable": false },
+          "task_id": { "type": "UUID", "nullable": false, "references": { "table": "tasks", "column": "id" } },
+          "user_id": { "type": "UUID", "nullable": false, "references": { "table": "users", "column": "id" } },
+          "action": { "type": "VARCHAR(255)", "nullable": false },
+          "timestamp": { "type": "TIMESTAMP", "default": "NOW()", "nullable": false }
+        }
+      }
+    }
+  },
+  "api_schema": {
+    "endpoints": [
+      {
+        "id": "EP_CREATE_WORKSPACE",
+        "method": "POST",
+        "path": "/api/v1/workspaces",
+        "authentication": "Required",
+        "request_body": {
+          "name": { "type": "string", "required": true, "min_length": 3 },
+          "slug": { "type": "string", "required": true }
+        },
+        "response_body": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "slug": { "type": "string" },
+          "created_at": { "type": "string" }
+        },
+        "db_operation": { "type": "insert", "table": "workspaces" }
+      },
+      {
+        "id": "EP_GET_TASKS",
+        "method": "GET",
+        "path": "/api/v1/projects/{projectId}/tasks",
+        "authentication": "Required",
+        "parameters": [
+          { "name": "projectId", "in": "path", "type": "string", "required": true }
+        ],
+        "response_body": {
+          "tasks": {
+            "type": "array",
+            "items": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "description": { "type": "string" },
+              "status": { "type": "string" },
+              "assignee_id": { "type": "string" }
+            }
+          }
+        },
+        "db_operation": { "type": "select", "table": "tasks", "filter": "project_id = :projectId" }
+      },
+      {
+        "id": "EP_CREATE_TASK",
+        "method": "POST",
+        "path": "/api/v1/projects/{projectId}/tasks",
+        "authentication": "Required",
+        "parameters": [
+          { "name": "projectId", "in": "path", "type": "string", "required": true }
+        ],
+        "request_body": {
+          "title": { "type": "string", "required": true, "max_length": 200 },
+          "description": { "type": "string", "required": false },
+          "assignee_id": { "type": "string", "required": false }
+        },
+        "response_body": {
+          "id": { "type": "string" },
+          "project_id": { "type": "string" },
+          "title": { "type": "string" },
+          "status": { "type": "string" }
+        },
+        "db_operation": { "type": "insert", "table": "tasks" }
+      },
+      {
+        "id": "EP_UPDATE_TASK_STATUS",
+        "method": "PATCH",
+        "path": "/api/v1/tasks/{taskId}/status",
+        "authentication": "Required",
+        "parameters": [
+          { "name": "taskId", "in": "path", "type": "string", "required": true }
+        ],
+        "request_body": {
+          "status": { "type": "string", "required": true, "enum": ["Todo", "In_Progress", "QA", "Done"] }
+        },
+        "response_body": {
+          "id": { "type": "string" },
+          "status": { "type": "string" }
+        },
+        "db_operation": { "type": "update", "table": "tasks", "filter": "id = :taskId" }
+      }
+    ]
+  },
+  "ui_schema": {
+    "components": [
+      {
+        "id": "COMP_WORKSPACE_HEADER",
+        "type": "Navbar",
+        "properties": { "title": "SaaS Project Boards" },
+        "children": []
+      },
+      {
+        "id": "COMP_KANBAN_BOARD",
+        "type": "KanbanBoard",
+        "properties": {
+          "columns": ["Todo", "In_Progress", "QA", "Done"]
+        },
+        "data_source": {
+          "endpoint_id": "EP_GET_TASKS",
+          "params": {
+            "projectId": "state.activeProjectId"
+          }
+        },
+        "actions": {
+          "onCardDrag": {
+            "endpoint_id": "EP_UPDATE_TASK_STATUS",
+            "params": {
+              "taskId": "event.cardId",
+              "status": "event.targetColumn"
+            }
+          }
+        }
+      },
+      {
+        "id": "COMP_CREATE_TASK_MODAL",
+        "type": "DialogForm",
+        "properties": { "title": "Create New Task" },
+        "fields": [
+          { "name": "title", "label": "Task Title", "type": "text", "validation": { "regex": "^.{3,200}$", "message": "Title must be between 3 and 200 characters" } },
+          { "name": "description", "label": "Description", "type": "textarea" },
+          { "name": "assignee_id", "label": "Assignee", "type": "dropdown", "options_source": "/api/v1/workspace/members" }
+        ],
+        "actions": {
+          "onSubmit": {
+            "endpoint_id": "EP_CREATE_TASK",
+            "params": {
+              "projectId": "state.activeProjectId",
+              "title": "form.values.title",
+              "description": "form.values.description",
+              "assignee_id": "form.values.assignee_id"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "authentication_rules": {
+    "auth_provider": "JWT",
+    "roles": ["Admin", "Member", "Guest"],
+    "role_hierarchies": {
+      "Admin": ["Member"],
+      "Member": ["Guest"],
+      "Guest": []
+    },
+    "endpoint_permissions": [
+      { "endpoint_id": "EP_CREATE_WORKSPACE", "allowed_roles": ["Admin"] },
+      { "endpoint_id": "EP_GET_TASKS", "allowed_roles": ["Admin", "Member", "Guest"] },
+      { "endpoint_id": "EP_CREATE_TASK", "allowed_roles": ["Admin", "Member"] },
+      { "endpoint_id": "EP_UPDATE_TASK_STATUS", "allowed_roles": ["Admin", "Member"] }
+    ],
+    "row_level_security": [
+      {
+        "table": "tasks",
+        "policy": "member_in_workspace",
+        "definition": "EXISTS (SELECT 1 FROM workspace_members wm JOIN projects p ON p.workspace_id = wm.workspace_id WHERE p.id = tasks.project_id AND wm.user_id = auth.user_id)"
+      }
+    ]
+  },
+  "business_logic_rules": {
+    "rules": [
+      {
+        "id": "RULE_AUTO_LOG_TASK_STATE",
+        "event": "tasks.update.status",
+        "condition": "old.status != new.status",
+        "action": "DB.activity_logs.insert({ task_id: new.id, user_id: auth.user_id, action: 'Status changed from ' + old.status + ' to ' + new.status })"
+      },
+      {
+        "id": "RULE_PREVENT_QA_WITHOUT_PR",
+        "event": "tasks.update.status",
+        "condition": "new.status == 'QA' && (new.description == null || !new.description.includes('PR:'))",
+        "action": "ABORT('A pull request reference (PR: <url>) is required in the description to move task to QA status.')"
+      }
+    ]
+  },
+  "validation_reports": {
+    "valid": true,
+    "scans": [
+      { "name": "Syntactic Schema Matcher", "status": "Passed", "duration_ms": 14 },
+      { "name": "Database Integrity & Key Validator", "status": "Passed", "duration_ms": 22 },
+      { "name": "API-to-Database Mapping Checker", "status": "Passed", "duration_ms": 18 },
+      { "name": "UI-to-API Binding Validator", "status": "Passed", "duration_ms": 35 },
+      { "name": "Auth Coverage Checker", "status": "Passed", "duration_ms": 12 }
+    ],
+    "errors": []
+  },
+  "repair_reports": {
+    "total_repairs_needed": 1,
+    "repair_attempts": [
+      {
+        "attempt_index": 1,
+        "error_matched": {
+          "layer": "UI",
+          "target": "COMP_KANBAN_BOARD -> actions -> onCardDrag",
+          "message": "Type mismatch. UI action parameter 'status' binds to API request body field with type 'string', but initial API body field had type 'integer' on target 'EP_UPDATE_TASK_STATUS'"
+        },
+        "target_ast_subtree": "api.endpoints[3].request_body.status",
+        "patch_applied": {
+          "before": { "status": { "type": "integer", "required": true } },
+          "after": { "status": { "type": "string", "required": true, "enum": ["Todo", "In_Progress", "QA", "Done"] } }
+        },
+        "status": "Resolved"
+      }
+    ]
+  },
+  "assumptions": [
+    {
+      "context": "Activity logging detail level",
+      "assumption": "The user requested standard audit logs. The compiler implicitly generated an 'activity_logs' database table and an event-driven business logic rule to write audit logs on every task status update."
+    },
+    {
+      "context": "Default status workflow",
+      "assumption": "Kanban status columns default to standard workflow: Todo, In_Progress, QA, Done. Corresponding string constraints have been configured in both the tasks table definition and the update status API schema."
+    }
+  ],
+  "execution_plans": {
+    "execution_graph_nodes": [
+      {
+        "id": "STEP_MIGRATION_USERS",
+        "action": "CREATE_TABLE",
+        "description": "Create base users directory table",
+        "depends_on": []
+      },
+      {
+        "id": "STEP_MIGRATION_WORKSPACES",
+        "action": "CREATE_TABLE",
+        "description": "Create workspaces table",
+        "depends_on": []
+      },
+      {
+        "id": "STEP_MIGRATION_WORKSPACE_MEMBERS",
+        "action": "CREATE_TABLE",
+        "description": "Create junction table workspace_members mapping users to workspaces",
+        "depends_on": ["STEP_MIGRATION_USERS", "STEP_MIGRATION_WORKSPACES"]
+      },
+      {
+        "id": "STEP_MIGRATION_PROJECTS",
+        "action": "CREATE_TABLE",
+        "description": "Create projects table belonging to workspaces",
+        "depends_on": ["STEP_MIGRATION_WORKSPACES"]
+      },
+      {
+        "id": "STEP_MIGRATION_TASKS",
+        "action": "CREATE_TABLE",
+        "description": "Create tasks table belonging to projects and assigned to users",
+        "depends_on": ["STEP_MIGRATION_PROJECTS", "STEP_MIGRATION_USERS"]
+      },
+      {
+        "id": "STEP_MIGRATION_COMMENTS",
+        "action": "CREATE_TABLE",
+        "description": "Create comments table referencing tasks and users",
+        "depends_on": ["STEP_MIGRATION_TASKS", "STEP_MIGRATION_USERS"]
+      },
+      {
+        "id": "STEP_MIGRATION_ACTIVITY_LOGS",
+        "action": "CREATE_TABLE",
+        "description": "Create activity_logs table for audit trail",
+        "depends_on": ["STEP_MIGRATION_TASKS", "STEP_MIGRATION_USERS"]
+      },
+      {
+        "id": "STEP_API_ROUTE_REGISTRATION",
+        "action": "REGISTER_ENDPOINTS",
+        "description": "Register endpoints (POST workspaces, GET tasks, POST tasks, PATCH task status) in gateway API server",
+        "depends_on": [
+          "STEP_MIGRATION_WORKSPACES",
+          "STEP_MIGRATION_PROJECTS",
+          "STEP_MIGRATION_TASKS"
+        ]
+      },
+      {
+        "id": "STEP_AUTH_POLICIES_APPLY",
+        "action": "APPLY_SECURITY_POLICIES",
+        "description": "Configure Row-Level Security on Postgres tasks table and sync JWT gateway auth rules",
+        "depends_on": ["STEP_API_ROUTE_REGISTRATION"]
+      },
+      {
+        "id": "STEP_UI_STATIC_DEPLOY",
+        "action": "BUILD_AND_DEPLOY_UI",
+        "description": "Build production layout bundles binding component events to gateway API endpoints",
+        "depends_on": ["STEP_API_ROUTE_REGISTRATION"]
+      }
+    ]
+  }
+}

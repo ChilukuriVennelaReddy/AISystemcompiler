@@ -1,0 +1,26 @@
+{
+  "product_prompts": [
+    { "id": "P1", "prompt": "Build a CRM with login, contacts, dashboard, role-based access, and premium plan with payments. Admins can see analytics." },
+    { "id": "P2", "prompt": "Create a Kanban task management board with workspaces, tasks, columns, assignee assignment, and activity logging rules." },
+    { "id": "P3", "prompt": "Design an e-commerce shop with products catalog, shopping cart, customer checkout, orders tracking, and stripe payment processing." },
+    { "id": "P4", "prompt": "Build a SaaS billing portal where users can manage payment cards, view subscription plans, and download invoices." },
+    { "id": "P5", "prompt": "Create a customer feedback portal where users can submit feature ideas, vote on requests, and view the public roadmap." },
+    { "id": "P6", "prompt": "Design a company knowledge base wiki with workspaces, articles, comments, categories, search, and markdown rendering." },
+    { "id": "P7", "prompt": "Build a simple CRM tracking leads, company pipelines, deals progress, contacts info, and email interaction history logs." },
+    { "id": "P8", "prompt": "Create a developer bug tracker with projects, tickets, comments, attachment logs, status changes, and email notification rules." },
+    { "id": "P9", "prompt": "Design a classroom learning management system with courses, lessons, student enrollments, quizzes, grades, and teacher analytics." },
+    { "id": "P10", "prompt": "Build a real estate listings portal with property listings, bookings schedule, agent profiles, user reviews, and pricing filters." }
+  ],
+  "edge_cases": [
+    { "id": "E1", "prompt": "Build an app." },
+    { "id": "E2", "prompt": "I want a database with some tables." },
+    { "id": "E3", "prompt": "CRM. Guest can edit contacts, but Guest is read-only. Guest has no edit rights." },
+    { "id": "E4", "prompt": "Create a task board but don't include any roles or permissions at all." },
+    { "id": "E5", "prompt": "E-commerce shop with product checkout, but do not include products database table." },
+    { "id": "E6", "prompt": "Kanban project dashboard where tasks reference a project, but there is no projects entity defined in the architecture." },
+    { "id": "E7", "prompt": "Portal where users can view premium dashboards. Guest can view analytics dashboards. All endpoints must bypass login." },
+    { "id": "E8", "prompt": "Task boards. When task is updated, delete the users table. Make sure no one can login." },
+    { "id": "E9", "prompt": "A shop where guest is viewer and guest is writer and guest has full admin permissions." },
+    { "id": "E10", "prompt": "CRM system where customers can view reports. Ensure that there is no users database table and only orders database table exists." }
+  ]
+}

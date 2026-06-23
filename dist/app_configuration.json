@@ -1,0 +1,310 @@
+{
+  "metadata": {
+    "compiler_version": "v1.0.0-prod-python",
+    "compilation_time_ms": 0,
+    "timestamp": "2026-06-23T17:06:32Z"
+  },
+  "intent_ir": {
+    "domain": "CRM",
+    "entities": [
+      "User",
+      "Contact",
+      "Company",
+      "Deal",
+      "Interaction"
+    ],
+    "features": [
+      "Authentication",
+      "Payments",
+      "Analytics Dashboard"
+    ],
+    "roles": [
+      "Admin"
+    ],
+    "ambiguities": [],
+    "conflicts": [],
+    "assumptions": [],
+    "raw_prompt": "Build a CRM with login, contacts, dashboard, role-based access, and premium plan with payments. Admins can see analytics."
+  },
+  "architecture_ir": {
+    "relationshipGraph": [
+      {
+        "from": "users",
+        "to": "contacts",
+        "type": "Many-to-Many",
+        "through": null
+      },
+      {
+        "from": "companies",
+        "to": "contacts",
+        "type": "One-to-Many",
+        "foreign_key": "company_id"
+      },
+      {
+        "from": "contacts",
+        "to": "deals",
+        "type": "One-to-Many",
+        "foreign_key": "contact_id"
+      },
+      {
+        "from": "contacts",
+        "to": "interactions",
+        "type": "One-to-Many",
+        "foreign_key": "contact_id"
+      }
+    ],
+    "dataFlowTopology": [
+      {
+        "flow_id": "create_contact_flow",
+        "source": "UI.ContactForm.Submit",
+        "transfers_through": "API.PostContactEndpoint",
+        "target": "DB.contacts.insert"
+      },
+      {
+        "flow_id": "get_contacts_flow",
+        "source": "DB.contacts.select",
+        "transfers_through": "API.GetContactsEndpoint",
+        "target": "UI.ContactsList.Rows"
+      }
+    ],
+    "routingTopology": {
+      "base_path": "/app",
+      "routes": [
+        {
+          "path": "/dashboard",
+          "view": "DashboardView",
+          "allowed_roles": [
+            "Admin"
+          ]
+        },
+        {
+          "path": "/settings",
+          "view": "SettingsView",
+          "allowed_roles": [
+            "Admin"
+          ]
+        },
+        {
+          "path": "/contacts",
+          "view": "ContactsListView",
+          "allowed_roles": [
+            "Admin"
+          ]
+        }
+      ]
+    }
+  },
+  "database_schema": {
+    "tables": {
+      "users": {
+        "columns": {
+          "id": {
+            "type": "UUID",
+            "primary_key": true,
+            "nullable": false
+          },
+          "email": {
+            "type": "VARCHAR(255)",
+            "unique": true,
+            "nullable": false
+          }
+        }
+      },
+      "contacts": {
+        "columns": {
+          "id": {
+            "type": "UUID",
+            "primary_key": true,
+            "nullable": false
+          },
+          "first_name": {
+            "type": "VARCHAR(100)",
+            "nullable": false
+          },
+          "last_name": {
+            "type": "VARCHAR(100)",
+            "nullable": false
+          },
+          "email": {
+            "type": "VARCHAR(255)",
+            "nullable": true
+          },
+          "phone": {
+            "type": "VARCHAR(50)",
+            "nullable": true
+          }
+        }
+      }
+    }
+  },
+  "api_schema": {
+    "endpoints": [
+      {
+        "id": "EP_GET_CONTACTS",
+        "method": "GET",
+        "path": "/api/v1/contacts",
+        "authentication": "Required",
+        "response_body": {
+          "contacts": {
+            "type": "array",
+            "items": {
+              "id": {
+                "type": "string"
+              },
+              "first_name": {
+                "type": "string"
+              },
+              "phone": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "db_operation": {
+          "type": "select",
+          "table": "contacts"
+        }
+      },
+      {
+        "id": "EP_CREATE_CONTACT",
+        "method": "POST",
+        "path": "/api/v1/contacts",
+        "authentication": "Required",
+        "request_body": {
+          "first_name": {
+            "type": "string",
+            "required": true
+          },
+          "last_name": {
+            "type": "string",
+            "required": true
+          },
+          "phone": {
+            "type": "string",
+            "required": false
+          }
+        },
+        "db_operation": {
+          "type": "insert",
+          "table": "contacts"
+        }
+      }
+    ]
+  },
+  "ui_schema": {
+    "components": [
+      {
+        "id": "COMP_CONTACTS_LIST",
+        "type": "TableList",
+        "data_source": {
+          "endpoint_id": "EP_GET_CONTACTS",
+          "params": {}
+        }
+      },
+      {
+        "id": "COMP_CONTACT_FORM",
+        "type": "Form",
+        "actions": {
+          "onSubmit": {
+            "endpoint_id": "EP_CREATE_CONTACT",
+            "params": {
+              "first_name": "form.values.first_name",
+              "last_name": "form.values.last_name",
+              "phone": "form.values.phone"
+            }
+          }
+        }
+      }
+    ]
+  },
+  "authentication_rules": {
+    "auth_provider": "JWT",
+    "roles": [
+      "Admin"
+    ],
+    "endpoint_permissions": [
+      {
+        "endpoint_id": "EP_GET_CONTACTS",
+        "allowed_roles": [
+          "Admin",
+          "Member"
+        ]
+      },
+      {
+        "endpoint_id": "EP_CREATE_CONTACT",
+        "allowed_roles": [
+          "Admin",
+          "Member"
+        ]
+      }
+    ],
+    "row_level_security": []
+  },
+  "business_logic_rules": {
+    "rules": [
+      {
+        "id": "RULE_PREMIUM_PLAN_GATE",
+        "event": "api.request.execute",
+        "condition": "request.user.plan != 'Premium' and '/premium-feature' in request.path",
+        "action": "ABORT('This feature requires a premium plan. Please upgrade.')"
+      }
+    ]
+  },
+  "validation_reports": {
+    "valid": true,
+    "errors": []
+  },
+  "repair_reports": {
+    "total_repairs_needed": 1,
+    "repair_attempts": [
+      {
+        "error": "Type mismatch at api.endpoints[1].request_body.phone",
+        "repair": "Synced DB column contacts.phone type from INTEGER to VARCHAR(50)",
+        "status": "Resolved",
+        "target_ast_subtree": "database.tables.contacts.columns.phone",
+        "patch_applied": {
+          "before": {
+            "type": "INTEGER"
+          },
+          "after": {
+            "type": "VARCHAR(50)"
+          }
+        }
+      }
+    ]
+  },
+  "assumptions": [],
+  "execution_plans": {
+    "execution_graph_nodes": [
+      {
+        "id": "STEP_1_DB_MIGRATION_USERS",
+        "action": "CREATE_TABLE",
+        "description": "Create database table: \"users\"",
+        "depends_on": []
+      },
+      {
+        "id": "STEP_2_DB_MIGRATION_CONTACTS",
+        "action": "CREATE_TABLE",
+        "description": "Create database table: \"contacts\"",
+        "depends_on": []
+      },
+      {
+        "id": "STEP_3_API_GATEWAY_SYNC",
+        "action": "REGISTER_ROUTES",
+        "description": "Bind endpoint pathways and request validation schemas",
+        "depends_on": [
+          "STEP_1_DB_MIGRATION_USERS",
+          "STEP_2_DB_MIGRATION_CONTACTS"
+        ]
+      },
+      {
+        "id": "STEP_4_UI_FRONTEND_COMPILE",
+        "action": "DEPLOY_VIEWS",
+        "description": "Compile layouts and bind state action data-sources",
+        "depends_on": [
+          "STEP_2_API_GATEWAY_SYNC"
+        ]
+      }
+    ]
+  }
+}

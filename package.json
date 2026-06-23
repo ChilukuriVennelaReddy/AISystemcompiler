@@ -1,0 +1,14 @@
+{
+  "name": "nl-to-app-compiler",
+  "version": "1.0.0",
+  "description": "Production-grade NL-to-App Compiler with Multi-stage pipeline, validation, repair, and execution simulation.",
+  "main": "compiler.js",
+  "scripts": {
+    "compile": "node compiler.js",
+    "test": "node validate.js",
+    "eval": "node compiler/evaluator.js"
+  },
+  "dependencies": {},
+  "author": "AI Systems Architect",
+  "license": "MIT"
+}
